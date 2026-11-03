@@ -1,0 +1,16 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<uses-permission android:name="android.permission.BLUETOOTH"/>
+<uses-permission android:name="android.permission.BLUETOOTH_ADMIN"/>
+<uses-permission android:name="android.permission.BLUETOOTH_CONNECT"/>
+<uses-permission android:name="android.permission.BLUETOOTH_ADVERTISE"/>
+<uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
+<uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
+<uses-permission android:name="android.permission.FOREGROUND_SERVICE_CONNECTED_DEVICE"/>
+<uses-feature android:name="android.hardware.bluetooth" android:required="true"/>
+<application android:label="WristRelay" android:allowBackup="false" android:theme="@android:style/Theme.Material.NoActionBar">
+<meta-data android:name="com.google.android.wearable.standalone" android:value="true"/>
+<activity android:name=".MainActivity" android:exported="true"><intent-filter><action android:name="android.intent.action.MAIN"/><category android:name="android.intent.category.LAUNCHER"/></intent-filter></activity>
+<service android:name=".RelayService" android:exported="false" android:foregroundServiceType="connectedDevice" android:stopWithTask="false"/>
+
+<receiver android:name=".CallActionReceiver" android:exported="false"/>
+</application></manifest>

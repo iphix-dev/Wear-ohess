@@ -1,0 +1,43 @@
+
+# Sauvegardes locales du projet
+/backup-*/
+/backups/
+
+# Journaux de diagnostic locaux
+/wristrelay-*.txt
+*~
+
+# Fichiers générés Android / Gradle
+.gradle/
+.kotlin/
+build/
+*.apk
+*.aab
+*.class
+
+# Configuration locale et IDE
+local.properties
+.idea/
+*.iml
+
+# Secrets et clés de signature
+*.jks
+*.keystore
+*.p12
+keystore.properties
+.env
+
+# Anciennes versions de fichiers
+*.bak
+*.before-*
+*.backup-*
+
+# Anciennes versions de fichiers
+*.bak
+*.before-*
+*.backup-*
+
+# Anciennes versions de fichiers
+*.bak
+*.before-*
+*.backup-*

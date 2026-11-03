@@ -1,0 +1,28 @@
+plugins { id 'com.android.application' }
+android {
+ namespace 'fr.wristrelay'
+ compileSdk 35
+ defaultConfig { applicationId 'fr.wristrelay'; minSdk 30; targetSdk 35; versionCode 1; versionName '0.1-prototype' }
+ flavorDimensions 'device'
+ productFlavors {
+  phone { dimension 'device'; applicationIdSuffix '.phone'; buildConfigField 'boolean','WATCH','false' }
+  watch { dimension 'device'; applicationIdSuffix '.watch'; buildConfigField 'boolean','WATCH','true' }
+ }
+ buildFeatures { buildConfig true }
+ compileOptions { sourceCompatibility JavaVersion.VERSION_17; targetCompatibility JavaVersion.VERSION_17 }
+}
+
+// WR_HEALTH_CHECK_V1
+dependencies {
+    watchImplementation "androidx.health:health-services-client:1.0.0"
+}
+
+// WR_KOTLIN_ALIGNMENT_V1
+dependencies {
+    watchImplementation platform("org.jetbrains.kotlin:kotlin-bom:1.8.21")
+}
+
+// WR_GUAVA_V1
+dependencies {
+    watchImplementation "com.google.guava:guava:31.0.1-android"
+}
