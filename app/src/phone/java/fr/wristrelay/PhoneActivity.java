@@ -89,6 +89,7 @@ public class PhoneActivity extends Activity {
 
     @Override protected void onCreate(Bundle b) {
         super.onCreate(b);
+        RelayService.cleanupLegacyChannel(this);
         Window w = getWindow();
         w.setDecorFitsSystemWindows(false);
         w.setStatusBarColor(Color.TRANSPARENT);
