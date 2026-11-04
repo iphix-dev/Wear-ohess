@@ -6,6 +6,7 @@ import android.view.View;
 import android.widget.FrameLayout;
 import android.widget.LinearLayout;
 import android.widget.TextView;
+import java.util.ArrayList;
 import java.util.List;
 
 /** Accueil : état de la liaison, batterie de la montre, historique. */
@@ -27,7 +28,15 @@ final class HomePage extends Page {
     private ValueAnimator pulse;
     private boolean wantPulse;
     private boolean visible;
-    private List<BatteryHistory.Point> shownHistory;
+    private static final long[] RANGES = {6L * 3600_000L, 24L * 3600_000L, 7L * 24L * 3600_000L, 0L};
+    private static final String[] RANGE_NAMES = {"6 h", "24 h", "7 j", "Tout"};
+
+    private final TextView[] chips = new TextView[4];
+    private int range;
+    private List<BatteryHistory.Point> sourceHistory;
+    private List<BatteryHistory.Point> shownHistory = java.util.Collections.emptyList();
+    private int shownRange = -1;
+    private long shownMinute = -1L;
 
     HomePage(PhoneActivity a) {
         super(a);
@@ -103,6 +112,26 @@ final class HomePage extends Page {
         countLabel = Ui.text(a, "", 12, Ui.TEXT_3);
         hh.addView(countLabel);
         his.addView(hh);
+
+        range = a.getSharedPreferences("ui", 0).getInt("chart_range", 3);
+        if (range < 0 || range >= RANGES.length) range = 3;
+        LinearLayout seg = Ui.hbox(a);
+        seg.setBackground(Ui.shape(a, Ui.SURFACE_HI, 100));
+        int sp = Ui.dp(a, 3);
+        seg.setPadding(sp, sp, sp, sp);
+        for (int i = 0; i < RANGES.length; i++) {
+            final int idx = i;
+            TextView c = Ui.text(a, RANGE_NAMES[i], 12.5f, Ui.TEXT_2, Ui.MEDIUM);
+            c.setGravity(Gravity.CENTER);
+            c.setPadding(0, Ui.dp(a, 7), 0, Ui.dp(a, 7));
+            c.setContentDescription("Période : " + RANGE_NAMES[i]);
+            c.setOnClickListener(v -> setRange(idx));
+            chips[i] = c;
+            seg.addView(c, Ui.lp(0, WRAP, 1f));
+        }
+        styleChips();
+        his.addView(seg, Ui.lpm(a, MATCH, WRAP, 0, 12, 0, 0));
+
         chart = new ChartView(a);
         chart.setContentDescription("Historique de la batterie de la montre");
         his.addView(chart, Ui.lpm(a, MATCH, Ui.dp(a, 200), 0, 10, 0, 0));
@@ -186,12 +215,56 @@ final class HomePage extends Page {
         // Batterie et historique.
         gauge.setLevel(s.level);
         lastMeasure.setText(s.lastTs > 0 ? "Dernière mesure · " + Ui.ago(s.lastTs) : "Aucune mesure pour le moment");
-        if (a.history != shownHistory) {
-            shownHistory = a.history;
-            chart.setData(shownHistory);
+        long now = System.currentTimeMillis();
+        long minute = now / 60000L;
+        boolean none = a.history.isEmpty();
+        chart.setEmpty(none ? "Aucune mesure pour l'instant" : "Aucune mesure sur cette période",
+            none ? "Connecte la montre et ouvre l'app" : "Choisis une période plus longue");
+        if (a.history != sourceHistory || range != shownRange || minute != shownMinute) {
+            sourceHistory = a.history;
+            shownRange = range;
+            shownMinute = minute;
+            List<BatteryHistory.Point> next = filtered(a.history, now);
+            if (!sameData(shownHistory, next)) {
+                shownHistory = next;
+                chart.setData(shownHistory);
+            }
             int n = shownHistory.size();
             countLabel.setText(n == 0 ? "" : n + (n > 1 ? " mesures" : " mesure"));
         }
+    }
+
+    private void setRange(int idx) {
+        if (idx == range) return;
+        range = idx;
+        a.getSharedPreferences("ui", 0).edit().putInt("chart_range", idx).apply();
+        styleChips();
+        refresh();
+    }
+
+    private void styleChips() {
+        for (int i = 0; i < chips.length; i++) {
+            boolean on = i == range;
+            chips[i].setTextColor(on ? Ui.TEXT : Ui.TEXT_2);
+            chips[i].setBackground(Ui.shape(a, on ? 0x477B8CFF : 0x00000000, 100));
+        }
+    }
+
+    private List<BatteryHistory.Point> filtered(List<BatteryHistory.Point> all, long now) {
+        if (RANGES[range] == 0L) return all;
+        long from = now - RANGES[range];
+        ArrayList<BatteryHistory.Point> out = new ArrayList<>();
+        for (BatteryHistory.Point p : all) {
+            if (p.timestamp >= from) out.add(p);
+        }
+        return out;
+    }
+
+    private static boolean sameData(List<BatteryHistory.Point> x, List<BatteryHistory.Point> y) {
+        if (x.size() != y.size()) return false;
+        if (x.isEmpty()) return true;
+        return x.get(0).timestamp == y.get(0).timestamp
+            && x.get(x.size() - 1).timestamp == y.get(y.size() - 1).timestamp;
     }
 
     private void addSetup(String label, Runnable action) {

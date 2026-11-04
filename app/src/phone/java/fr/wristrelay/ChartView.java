@@ -45,6 +45,8 @@ final class ChartView extends View {
     private float reveal = 1f;
     private int selected = -1;
     private ValueAnimator animator;
+    private String emptyTitleText = "Aucune mesure pour l'instant";
+    private String emptySubText = "Connecte la montre et ouvre l'app";
 
     ChartView(Context c) {
         super(c);
@@ -76,6 +78,15 @@ final class ChartView extends View {
         emptySub.setColor(Ui.TEXT_3);
         emptySub.setTextSize(Ui.sp(c, 12f));
         emptySub.setTextAlign(Paint.Align.CENTER);
+    }
+
+    /** Textes affichés quand il n'y a aucune mesure à dessiner. */
+    void setEmpty(String title, String sub) {
+        if (!title.equals(emptyTitleText) || !sub.equals(emptySubText)) {
+            emptyTitleText = title;
+            emptySubText = sub;
+            invalidate();
+        }
     }
 
     void setData(List<BatteryHistory.Point> data) {
@@ -203,8 +214,8 @@ final class ChartView extends View {
         if (n == 0) {
             float cx = plot.centerX();
             float cy = plot.centerY();
-            canvas.drawText("Aucune mesure pour l'instant", cx, cy - 2f * d, emptyTitle);
-            canvas.drawText("Ouvre l'app quand la montre est connectée", cx, cy + 18f * d, emptySub);
+            canvas.drawText(emptyTitleText, cx, cy - 2f * d, emptyTitle);
+            canvas.drawText(emptySubText, cx, cy + 18f * d, emptySub);
             return;
         }
 
