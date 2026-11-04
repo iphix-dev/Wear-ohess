@@ -129,6 +129,14 @@ final class Link {
         }
     }
 
+    /** Commande de sonnerie / vibration à la montre : mode « ring », « vibrate » ou « stop ». */
+    static void sendFind(String mode) throws JSONException {
+        JSONObject j = new JSONObject();
+        j.put("op", "find");
+        j.put("mode", mode);
+        RelayService.send(j);
+    }
+
     static void sendTest() throws JSONException {
         JSONObject j = new JSONObject();
         j.put("op", "post");
