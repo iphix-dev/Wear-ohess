@@ -75,10 +75,22 @@ android.util.Log.i("WristRelay","Connexion Bluetooth établie vers " + peer);
  socket=s;queue.clear();delay=5000;nm.notify(1,status("Connecté — aucun ping périodique"));DataInputStream in=new DataInputStream(s.getInputStream());while(running){int size=in.readInt();if(size<1||size>16384)throw new IOException("Trame invalide");byte[] b=new byte[size];in.readFully(b);// WR_CALL_ACTIONS_V1
 JSONObject packet = new JSONObject(new String(b,"UTF-8"));
 if(BuildConfig.WATCH) receive(packet);
-else CallActions.execute(this, packet);}
+else if ("battery".equals(packet.optString("op"))) {
+BatteryHistory.record(this, packet.optInt("level", -1));
+} else CallActions.execute(this, packet);}
  }catch(Exception e){if(running){nm.notify(1,status("Déconnecté : "+e.getClass().getSimpleName()));android.util.Log.w("WristRelay","Liaison interrompue",e);}}finally{closeSocket();queue.clear();}if(running)try{Thread.sleep(delay);delay=Math.min(delay*2,300000);}catch(InterruptedException e){return;}}
  }
- void receive(JSONObject j)throws Exception{String key=j.optString("key");if("remove".equals(j.optString("op"))){Integer id=ids.remove(key);if(id!=null)nm.cancel(id);return;}if(!"post".equals(j.optString("op")))return;if(!ids.containsKey(key)){if(ids.size()>=100){String oldest=ids.keySet().iterator().next();nm.cancel(ids.remove(oldest));}ids.put(key,nextId++);}boolean call=j.optBoolean("call");String title=j.optString("title"),text=j.optString("text");Notification.Builder b=new Notification.Builder(this,call?"calls":"messages").setSmallIcon(android.R.drawable.ic_dialog_info).setContentTitle(j.optString("app")+" — "+title).setContentText(text).setStyle(new Notification.BigTextStyle().bigText(text)).setOnlyAlertOnce(true).setAutoCancel(true).setLocalOnly(true).setVisibility(Notification.VISIBILITY_PRIVATE).setCategory(call?Notification.CATEGORY_CALL:Notification.CATEGORY_MESSAGE);if(call)CallActions.addButtons(this,b,j);nm.notify(ids.get(key),b.build());}
+ void receive(JSONObject j)throws Exception{
+if ("battery_request".equals(j.optString("op"))) {
+    BatteryManager battery = (BatteryManager)getSystemService(BATTERY_SERVICE);
+    int level = battery.getIntProperty(BatteryManager.BATTERY_PROPERTY_CAPACITY);
+    JSONObject response = new JSONObject();
+    response.put("op", "battery");
+    response.put("level", level);
+    send(response);
+    return;
+}
+String key=j.optString("key");if("remove".equals(j.optString("op"))){Integer id=ids.remove(key);if(id!=null)nm.cancel(id);return;}if(!"post".equals(j.optString("op")))return;if(!ids.containsKey(key)){if(ids.size()>=100){String oldest=ids.keySet().iterator().next();nm.cancel(ids.remove(oldest));}ids.put(key,nextId++);}boolean call=j.optBoolean("call");String title=j.optString("title"),text=j.optString("text");Notification.Builder b=new Notification.Builder(this,call?"calls":"messages").setSmallIcon(android.R.drawable.ic_dialog_info).setContentTitle(j.optString("app")+" — "+title).setContentText(text).setStyle(new Notification.BigTextStyle().bigText(text)).setOnlyAlertOnce(true).setAutoCancel(true).setLocalOnly(true).setVisibility(Notification.VISIBILITY_PRIVATE).setCategory(call?Notification.CATEGORY_CALL:Notification.CATEGORY_MESSAGE);if(call)CallActions.addButtons(this,b,j);nm.notify(ids.get(key),b.build());}
  synchronized void closeSocket(){BluetoothSocket s=socket;socket=null;if(s!=null)try{s.close();}catch(Exception ignored){}}
  public void onDestroy(){android.util.Log.w("WristRelay","onDestroy : service détruit");running=false;instance=null;closeSocket();if(server!=null)try{server.close();}catch(Exception ignored){}if(link!=null)link.interrupt();threads.shutdownNow();queue.clear();stopForeground(STOP_FOREGROUND_REMOVE);super.onDestroy();}
 

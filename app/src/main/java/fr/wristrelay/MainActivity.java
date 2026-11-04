@@ -2,6 +2,20 @@ package fr.wristrelay;
 import android.app.*; import android.os.*; import android.content.*; import android.bluetooth.*; import android.widget.*; import android.provider.Settings; import android.Manifest; import android.content.pm.PackageManager;
 public class MainActivity extends Activity {
  LinearLayout box;
+ private boolean batteryRequested;
+ @Override protected void onResume() {
+     super.onResume();
+     if (!BuildConfig.WATCH && !batteryRequested) {
+         batteryRequested = true;
+         try {
+             org.json.JSONObject request = new org.json.JSONObject();
+             request.put("op", "battery_request");
+             RelayService.send(request);
+         } catch (org.json.JSONException e) {
+             android.util.Log.e("WristRelay", "Impossible de demander la batterie de la montre", e);
+         }
+     }
+ }
  void button(String t, Runnable r){ Button b=new Button(this); b.setText(t); box.addView(b); b.setOnClickListener(v->{try{r.run();}catch(Exception e){
     android.util.Log.e("WristRelay", "Échec du bouton : " + t, e);
     new AlertDialog.Builder(this)
