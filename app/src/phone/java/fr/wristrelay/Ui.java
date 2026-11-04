@@ -45,7 +45,8 @@ final class Ui {
     }
 
     static float sp(Context c, float v) {
-        return v * c.getResources().getDisplayMetrics().scaledDensity;
+        return android.util.TypedValue.applyDimension(
+            android.util.TypedValue.COMPLEX_UNIT_SP, v, c.getResources().getDisplayMetrics());
     }
 
     // ---------- Formes ----------

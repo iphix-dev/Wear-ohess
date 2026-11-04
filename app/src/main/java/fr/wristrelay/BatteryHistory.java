@@ -74,4 +74,9 @@ public final class BatteryHistory {
         }
         return result;
     }
+
+    /** Efface tout l'historique enregistré. */
+    public static synchronized void clear(Context context) {
+        prefs(context).edit().remove(KEY_POINTS).apply();
+    }
 }

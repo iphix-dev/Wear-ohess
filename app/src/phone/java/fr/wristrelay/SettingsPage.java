@@ -24,6 +24,7 @@ final class SettingsPage extends Page {
     private final Row listener;
     private final Row device;
     private final Row apps;
+    private final Row export;
     private final Switch relay;
     private boolean binding;
 
@@ -69,6 +70,15 @@ final class SettingsPage extends Page {
         addRow(g3, link, true);
         addRow(g3, test, false);
         addCard(g3);
+
+        addLabel("Historique de la batterie");
+        LinearLayout g4 = group();
+        export = row(IconView.Kind.SHARE, "Exporter en CSV", true, a::exportHistory);
+        Row clear = row(IconView.Kind.TRASH, "Effacer l'historique", true, a::confirmClearHistory);
+        clear.sub.setText("Supprime toutes les mesures enregistrées");
+        addRow(g4, export, true);
+        addRow(g4, clear, false);
+        addCard(g4);
 
         TextView foot = Ui.text(a,
             "WristRelay " + BuildConfig.VERSION_NAME + "\nLiaison Bluetooth directe, sans Internet ni services Google.",
@@ -129,6 +139,9 @@ final class SettingsPage extends Page {
         setSub(device, s.peerAddr.isEmpty() ? "Aucun appareil choisi" : s.peerName, !s.peerAddr.isEmpty());
         setSub(apps, s.allowed == 0 ? "Aucune : rien n'est transmis"
             : s.allowed + (s.allowed > 1 ? " applications" : " application"), s.allowed > 0);
+
+        int n = a.history.size();
+        export.sub.setText(n == 0 ? "Aucune mesure pour le moment" : n + (n > 1 ? " mesures" : " mesure"));
 
         boolean on = s.link != Link.STOPPED;
         if (relay.isChecked() != on) {

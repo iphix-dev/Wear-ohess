@@ -12,7 +12,7 @@ import android.view.View;
 final class IconView extends View {
     enum Kind {
         HOME, HEART, GRID, SLIDERS, BELL, VIBRATE, WATCH, PHONE, CHEVRON,
-        STEPS, MOON, STOPWATCH, BLUETOOTH, REFRESH, CHECK, ALERT, BATTERY, STOP
+        STEPS, MOON, STOPWATCH, BLUETOOTH, REFRESH, CHECK, ALERT, BATTERY, STOP, SHARE, TRASH
     }
 
     private final Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
@@ -21,6 +21,7 @@ final class IconView extends View {
 
     IconView(Context c, Kind kind, int color) {
         super(c);
+        setImportantForAccessibility(IMPORTANT_FOR_ACCESSIBILITY_NO);
         paint.setStyle(Paint.Style.STROKE);
         paint.setStrokeCap(Paint.Cap.ROUND);
         paint.setStrokeJoin(Paint.Join.ROUND);
@@ -160,6 +161,18 @@ final class IconView extends View {
                 break;
             case STOP:
                 p.addRoundRect(new RectF(7f, 7f, 17f, 17f), 2f, 2f, Path.Direction.CW);
+                break;
+            case SHARE:
+                p.moveTo(5f, 13f); p.lineTo(5f, 19f); p.lineTo(19f, 19f); p.lineTo(19f, 13f);
+                line(p, 12f, 15f, 12f, 4f);
+                p.moveTo(8f, 8f); p.lineTo(12f, 4f); p.lineTo(16f, 8f);
+                break;
+            case TRASH:
+                line(p, 4f, 7f, 20f, 7f);
+                p.moveTo(9f, 7f); p.lineTo(9f, 4.5f); p.lineTo(15f, 4.5f); p.lineTo(15f, 7f);
+                p.moveTo(6f, 7f); p.lineTo(7f, 20f); p.lineTo(17f, 20f); p.lineTo(18f, 7f);
+                line(p, 10f, 11f, 10f, 16f);
+                line(p, 14f, 11f, 14f, 16f);
                 break;
             default:
                 break;

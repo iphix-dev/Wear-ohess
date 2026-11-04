@@ -153,6 +153,7 @@ public class PhoneActivity extends Activity {
         NavItem(IconView.Kind kind, String text, int index) {
             super(PhoneActivity.this);
             setOrientation(VERTICAL);
+            setContentDescription(text);
             setGravity(Gravity.CENTER_HORIZONTAL);
             setPadding(0, Ui.dp(PhoneActivity.this, 9), 0, Ui.dp(PhoneActivity.this, 9));
 
@@ -359,6 +360,34 @@ public class PhoneActivity extends Activity {
                 .setPositiveButton("Paramètres", (d, w) -> guard(() -> startActivity(
                     new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:" + getPackageName()))))));
         }
+    }
+
+    /** Partage l'historique de batterie en CSV via la feuille de partage Android. */
+    void exportHistory() {
+        guard(() -> {
+            if (history.isEmpty()) throw new IllegalStateException("Aucune mesure à exporter pour le moment.");
+            Intent send = new Intent(Intent.ACTION_SEND)
+                .setType("text/plain")
+                .putExtra(Intent.EXTRA_SUBJECT, "Historique batterie WristRelay")
+                .putExtra(Intent.EXTRA_TEXT, HistoryExport.csv(history));
+            startActivity(Intent.createChooser(send, "Exporter l'historique"));
+        });
+    }
+
+    void confirmClearHistory() {
+        if (history.isEmpty()) {
+            Toast.makeText(this, "L'historique est déjà vide", Toast.LENGTH_SHORT).show();
+            return;
+        }
+        Ui.show(Ui.dialog(this)
+            .setTitle("Effacer l'historique ?")
+            .setMessage("Les " + history.size() + " mesures de batterie seront supprimées. Cette action est définitive.")
+            .setNegativeButton("Annuler", null)
+            .setPositiveButton("Effacer", (d, w) -> {
+                BatteryHistory.clear(this);
+                historyDirty = true;
+                refreshAll();
+            }));
     }
 
     void chooseDevice() {

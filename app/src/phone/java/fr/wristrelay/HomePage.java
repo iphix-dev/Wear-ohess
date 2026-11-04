@@ -75,6 +75,7 @@ final class HomePage extends Page {
         bh.addView(bt, btp);
         FrameLayout rb = new FrameLayout(a);
         rb.setBackground(Ui.ripple(a, Ui.shape(a, Ui.SURFACE_HI, 100), 100));
+        rb.setContentDescription("Actualiser la batterie de la montre");
         refreshIcon = new IconView(a, IconView.Kind.REFRESH, Ui.TEXT);
         rb.addView(refreshIcon, new FrameLayout.LayoutParams(Ui.dp(a, 20), Ui.dp(a, 20), Gravity.CENTER));
         rb.setOnClickListener(v -> {
@@ -103,6 +104,7 @@ final class HomePage extends Page {
         hh.addView(countLabel);
         his.addView(hh);
         chart = new ChartView(a);
+        chart.setContentDescription("Historique de la batterie de la montre");
         his.addView(chart, Ui.lpm(a, MATCH, Ui.dp(a, 200), 0, 10, 0, 0));
         his.addView(Ui.text(a, "Touche la courbe pour lire une mesure.", 12, Ui.TEXT_3),
             Ui.lpm(a, WRAP, WRAP, 0, 6, 0, 0));

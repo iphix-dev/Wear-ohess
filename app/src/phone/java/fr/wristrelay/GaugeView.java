@@ -32,6 +32,7 @@ final class GaugeView extends View {
 
     GaugeView(Context c) {
         super(c);
+        setContentDescription("Batterie de la montre : aucune mesure");
         for (Paint p : new Paint[] {track, glow, arc}) {
             p.setStyle(Paint.Style.STROKE);
             p.setStrokeCap(Paint.Cap.ROUND);
@@ -49,6 +50,8 @@ final class GaugeView extends View {
     void setLevel(int newLevel) {
         if (newLevel == level) return;
         level = newLevel;
+        setContentDescription(newLevel < 0 ? "Batterie de la montre : aucune mesure"
+            : "Batterie de la montre : " + newLevel + " pour cent");
         float to = newLevel < 0 ? 0f : newLevel;
         if (animator != null) animator.cancel();
         animator = ValueAnimator.ofFloat(shown, to);
