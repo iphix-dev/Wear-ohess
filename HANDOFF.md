@@ -4,10 +4,10 @@ Document rédigé le 4 novembre 2026, mis à jour après la construction de la n
 
 ## 0. Où on en est (résumé en 30 secondes)
 
-- La **nouvelle interface téléphone sombre** est écrite, **compile** (GitHub Actions, les deux flavors) et est poussée sur la branche **`ui-telephone`**. Elle n'est **pas fusionnée dans `main`**. Dernier commit vérifié par le build : `a7766b3` (run GitHub Actions `41819478262`, succès).
-- Elle n'a **jamais été lancée** : ni sur un appareil, ni dans un émulateur, ni vue en capture. Le rendu visuel et le comportement réel sont **non vérifiés**.
-- Le côté montre n'a pas été modifié. Les commandes « sonnerie / vibration » vers la montre et la synchronisation santé n'existent pas encore (boutons « Bientôt », cartes « Aucune donnée »).
-- Prochaine action logique : l'utilisateur installe l'APK de la branche, regarde le rendu, demande des retouches, puis on fusionne dans `main`.
+- La **nouvelle interface téléphone sombre** est écrite, **compile** (GitHub Actions, les deux flavors) et est poussée sur la branche **`ui-telephone`**. Elle n'est **pas fusionnée dans `main`**. Dernier commit vérifié par le build : `4f417d1` (run GitHub Actions `41895829568`, succès).
+- L'utilisateur a installé l'interface et la trouve « magnifique » (rendu validé par lui, le 4 nov. au soir). Le **comportement détaillé** (liaison, notifications, sonnerie) n'a pas été confirmé en retour : l'IA ne peut lancer ni appareil ni émulateur.
+- Le 4 nov. 2026 l'utilisateur a **autorisé** de toucher `RelayService` et la montre. Fait : notifications montre avec titre = application d'origine, notification de service du téléphone discrète, sonnerie/vibration de la montre (commande `find`). **Reste à faire** : synchronisation santé (cartes « Aucune donnée »). Tout cela est compilé mais **non testé sur appareil**.
+- Prochaine action logique : l'utilisateur installe l'APK de la branche, teste les nouveautés (notifications, sonnerie de la montre), puis on fusionne dans `main`.
 
 ## 1. Objectif de l'utilisateur
 
@@ -24,7 +24,7 @@ L'utilisateur écrit en français, est à l'aise sous Linux (Arch) et veut des i
 ### 2.1 Code existant (non modifié par la session UI, sauf mention)
 
 - Projet Android unique, module `app`, deux flavors : `phone` (applicationId `fr.wristrelay.phone`) et `watch` (`fr.wristrelay.watch`). `minSdk 30`, `compileSdk/targetSdk 35`, Java 17. `buildConfig` activé : `BuildConfig.WATCH` distingue les flavors.
-- `RelayService.java` : service de liaison Bluetooth RFCOMM, UUID `96bf751e-9529-4f99-9c1e-f952fedc4091`. Gère la reprise (`onTaskRemoved`, `ensureStarted`) : les notifications continuent après retrait des applications récentes. **Ce correctif doit être préservé. Non modifié.** Le côté téléphone est client RFCOMM, la montre est serveur. Reconnexion avec attente 5, 10, 20, 40, 80, 160 puis 300 s max.
+- `RelayService.java` : service de liaison Bluetooth RFCOMM, UUID `96bf751e-9529-4f99-9c1e-f952fedc4091`. Gère la reprise (`onTaskRemoved`, `ensureStarted`) : les notifications continuent après retrait des applications récentes. **Ce correctif doit être préservé (intact).** Modifié le 4 nov. à la demande de l'utilisateur : canal `status_quiet` (importance minimale) ; toucher sur la notification d'état = intent de lancement de l'app (PhoneActivity sur le téléphone, MainActivity sur la montre) ; textes d'état lisibles ; réception de l'op `find` (montre) ; notification montre avec titre = application d'origine. Le côté téléphone est client RFCOMM, la montre est serveur. Reconnexion avec attente 5, 10, 20, 40, 80, 160 puis 300 s max.
 - `MainActivity.java` : ancienne interface (liste de boutons), **toujours utilisée par la montre**. Dans l'APK téléphone elle reste présente mais n'est plus un lanceur.
 - `BatteryHistory.java` : enregistre (timestamp, niveau) dans SharedPreferences `battery_history`, 500 points max. **Modifié** : ajout de `Point`, `prefs(Context)`, `read(Context)` (lecture, du plus ancien au plus récent) et `clear(Context)`. `record()` est inchangé.
 - `CallActions.java`, `CallActionReceiver.java` : existent bien (raccrochage/refus à distance via les boutons de la notification d'appel). Fiabilité **non testée**.
@@ -35,7 +35,7 @@ L'utilisateur écrit en français, est à l'aise sous Linux (Arch) et veut des i
 - Préférences : fichier `cfg` (`peer`, `relay_enabled`, `allow`) ; `battery_history` (points) ; `ui` (`chart_range` : période de la courbe, 0 à 3, ajouté par l'interface).
 - `install.sh` : installation adb (Wi-Fi). Non relu ni modifié dans cette session.
 
-### 2.2 Ce qui a été ajouté (branche `ui-telephone`, commits jusqu'à `a7766b3`)
+### 2.2 Ce qui a été ajouté (branche `ui-telephone`, commits jusqu'à `4f417d1`)
 
 Tous les nouveaux fichiers sont dans `app/src/phone/java/fr/wristrelay/` (donc **absents du build montre**). Aucune ressource XML, aucune bibliothèque : tout est construit en Java et dessiné en Canvas.
 
@@ -45,7 +45,8 @@ Tous les nouveaux fichiers sont dans `app/src/phone/java/fr/wristrelay/` (donc *
 | `Page.java` | Base des pages (défilement, en-tête, cartes). |
 | `HomePage.java` | Accueil : carte liaison, carte « À configurer » (seulement s'il manque quelque chose), jauge batterie + bouton d'actualisation, courbe d'historique avec puces de période 6 h / 24 h / 7 j / Tout (choix mémorisé). |
 | `HealthPage.java` | Santé : 4 cartes (pas, rythme cardiaque, sommeil, sport) toutes à « Aucune donnée », bouton de synchronisation grisé. **Aucune valeur inventée.** |
-| `ToolsPage.java` | Outils : sonnerie (deux confirmations, volume alarme, 30 s max, bouton Arrêter) et vibration du **téléphone**. Montre et « les deux » : « Bientôt », boutons inactifs, **rien n'est envoyé à la montre**. |
+| `ToolsPage.java` | Outils : sonnerie (deux confirmations, volume alarme, 30 s max, bouton Arrêter) et vibration pour le téléphone, la montre ou les deux. La montre n'est commandée que si la liaison est connectée (op `find`, modes `ring` / `vibrate` / `stop`). |
+| `FindActions.java` (dossier `main`, commun aux deux flavors) | Sonnerie en boucle + vibration, arrêt automatique à 30 s ; utilisé par le téléphone (local) et par la montre (commande reçue). |
 | `SettingsPage.java` | Réglages : permissions, accès notifications, réglages Bluetooth, appareil autorisé, applications à transmettre, interrupteur de liaison, notification de test, export CSV et effacement de l'historique de batterie, version. |
 | `Link.java` | Lecture de l'état de la liaison + actions (démarrer, arrêter, test, demande de batterie). Reprend à l'identique les vérifications de l'ancienne `MainActivity`. |
 | `Ui.java` | Palette, formes, boutons, boîtes de dialogue sombres, temps relatif. |
@@ -79,18 +80,21 @@ Palette : fond `#0A0C11`, surfaces `#13161E` / `#1B1F2B`, texte `#F3F5F9` / `#A0
 9. L'utilisateur ne pouvait pas tester et a demandé de continuer à améliorer. Lecture retenue : améliorations **uniquement côté téléphone**, sans toucher à `RelayService` ni au côté montre (règle du handoff), par petits lots vérifiés par le build.
 10. **Lot 1** (commit `994be8b`, build OK) : export CSV et effacement (avec confirmation) de l'historique de batterie dans Réglages ; descriptions d'accessibilité (navigation, jauge qui annonce sa valeur, bouton d'actualisation, courbe, icônes décoratives ignorées) ; `Ui.sp()` n'utilise plus `scaledDensity`.
 11. **Lot 2** (commit `a7766b3`, build OK) : sélecteur de période 6 h / 24 h / 7 j / Tout sur la courbe, choix mémorisé, message dédié quand il n'y a aucune mesure sur la période.
+12. L'utilisateur a installé l'interface, l'a trouvée « magnifique » et a laissé la suite (fonctions manquantes, montre) à l'IA, avec deux demandes : sur la montre, le titre de la notification doit être l'application d'origine (pas WristRelay) ; sur le Xiaomi 18 Pro, la notification de service doit être discrète (« plus de notifications »).
+13. **Lot A** (commits `71d61f6` puis `756cc18`) : un premier essai avec `EXTRA_SUBSTITUTE_APP_NAME` a **échoué à la compilation** (constante non publique, permission réservée aux applis système) ; remplacé par des API publiques : titre de la notification montre = nom de l'application, ligne courte « Expéditeur : message », texte déplié sur deux lignes. L'en-tête système « WristRelay » de la carte ne peut pas être changé sans droits système. Notification de service : nouveau canal `status_quiet` en importance minimale, ancien canal supprimé quand le service ne tourne pas, toucher = ouvre l'interface de l'appareil.
+14. **Lot B** (commit `4f417d1`, build OK) : `FindActions`, op `find` côté montre, permission `VIBRATE` dans le manifeste montre, cartes Montre et « Les deux » activées dans Outils.
 
 ## 4. Ce qui reste à faire (ordre suggéré)
 
 1. **Installer l'APK de la branche et regarder le rendu** (non vérifié). Corriger espacements, tailles de texte, couleurs, éventuels plantages.
 2. Fusionner `ui-telephone` dans `main` quand l'utilisateur valide (pas fait, à sa demande).
-3. Option : faire ouvrir `PhoneActivity` (et non l'ancienne `MainActivity`) depuis la notification « WristRelay actif ». Nécessite de modifier `RelayService.status()` : **demander l'accord de l'utilisateur** (fichier à ne pas toucher sans demande).
-4. Côté montre, **uniquement quand l'utilisateur le demande** : réception des commandes sonnerie/vibration (puis activer les boutons « Bientôt » de la page Outils) ; envoi de données santé sur action manuelle (puis alimenter la page Santé).
+3. ~~Faire ouvrir `PhoneActivity` depuis la notification d'état~~ : fait (lot A).
+4. Côté montre : ~~sonnerie/vibration~~ fait (lot B). **Reste** : envoi de données santé sur action manuelle (Health Services, permissions à demander sur la montre), puis alimenter la page Santé. À ne pas lancer sans pouvoir tester : les erreurs de permissions sont invisibles depuis un simple build.
 5. Mettre à jour le workflow si souhaité : Node 20 déprécié, `actions/setup-java` v5 disponible, label `ubuntu-latest` qui migre vers Ubuntu 26. Le paquet SDK `tools` a été retiré : ne pas le réinstaller.
 6. Tests sur appareils : connexion, notification de test, écran éteint, retrait des récents, reconnexion, appels, batterie.
 7. Pistes déjà évoquées dans le README : protocole avec accusé de réception, nettoyage des notifications au redémarrage, CompanionDeviceManager, OngoingActivity Wear OS.
 8. Idées côté téléphone sans risque pour la liaison (pas encore faites) : sélecteur d'applications avec recherche et icônes (aujourd'hui une boîte de dialogue à cases) ; choix de la couleur d'accent dans Réglages ; affichage de la dernière connexion.
-9. **Nécessitent l'accord explicite de l'utilisateur** (touchent `RelayService` ou la montre) : rediriger la notification d'état vers la nouvelle interface ; commandes sonnerie/vibration vers la montre ; synchronisation santé.
+9. Autres idées : icône de l'application d'origine en grande icône de la notification montre (à transférer en petit PNG, trame limitée à 16 384 octets) ; sélecteur d'applications avec recherche et icônes.
 
 ## 5. Fonctions NON confirmées (ne pas les présenter comme acquises)
 
@@ -98,7 +102,9 @@ Palette : fond `#0A0C11`, surfaces `#13161E` / `#1B1F2B`, texte `#F3F5F9` / `#A0
 - Réception fiable des appels et raccrochage à distance.
 - Audio des appels sur la montre.
 - Synchronisation santé (sommeil, pas, FC, sport) : n'existe pas.
-- Sonnerie/vibration de la montre : n'existe pas.
+- Sonnerie/vibration de la montre : implémentées et compilées, **jamais testées** (pas d'accusé de réception : la montre ne répond pas).
+- Notification de service « discrète » : canal en importance minimale, mais le rangement exact dans « plus de notifications » dépend de l'interface du Xiaomi (HyperOS), non vérifié.
+- Titre des notifications montre : implémenté, rendu sur la montre non vérifié.
 - Réponses aux messages, actions de notification.
 - Reconnexion automatique après coupure Bluetooth ou redémarrage.
 - Autonomie mesurée.
@@ -111,7 +117,7 @@ Palette : fond `#0A0C11`, surfaces `#13161E` / `#1B1F2B`, texte `#F3F5F9` / `#A0
 - Aucun ping périodique en arrière-plan : la batterie n'est demandée qu'à l'ouverture de l'app (ou à la connexion pendant qu'elle est ouverte, ou sur bouton).
 - Synchronisation santé uniquement sur action de l'utilisateur (bouton).
 - Notifications synchronisées en continu.
-- Ne pas toucher à `RelayService` (sauf demande explicite), au correctif de reprise, à l'UUID, au workflow sans raison précise.
+- Ne pas toucher à `RelayService` sans besoin réel (l'utilisateur a autorisé les changements de notifications et de `find` le 4 nov. 2026), ni au correctif de reprise, ni à l'UUID, ni au workflow sans raison précise.
 - Ne pas inventer UUID, noms de package, versions ou classes existantes sans les lire dans le dépôt.
 - Ne jamais afficher de fausses valeurs de santé.
 - Ne pas conseiller de réinitialiser la montre.
@@ -129,7 +135,6 @@ Palette : fond `#0A0C11`, surfaces `#13161E` / `#1B1F2B`, texte `#F3F5F9` / `#A0
 
 - Aucun compilateur Android local : seule la syntaxe se vérifie hors CI. Les erreurs de types n'apparaissent que dans GitHub Actions.
 - Un build réussi ne garantit pas que la liaison Bluetooth fonctionne.
-- La notification « WristRelay actif » ouvre encore l'ancienne `MainActivity` (voir tâche 3).
 - Interface verrouillée en portrait ; sur très grand écran Android peut ignorer ce verrou.
 - Le choix des applications à transmettre est une boîte de dialogue à cases (liste triée), pas une page dédiée.
 - Les anciens journaux ne décrivent pas forcément la version actuelle.
