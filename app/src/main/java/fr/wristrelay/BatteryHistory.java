@@ -39,4 +39,44 @@ public final class BatteryHistory {
         }
         prefs.edit().putString(KEY_POINTS, points.toString()).apply();
     }
+
+    /** Une mesure de batterie horodatée. */
+    public static final class Point {
+        public final long timestamp;
+        public final int level;
+
+        Point(long timestamp, int level) {
+            this.timestamp = timestamp;
+            this.level = level;
+        }
+    }
+
+    /** Préférences contenant l'historique (pour écouter les nouvelles mesures). */
+    public static SharedPreferences prefs(Context context) {
+        return context.getSharedPreferences(PREFS, Context.MODE_PRIVATE);
+    }
+
+    /** Lit l'historique enregistré, du plus ancien au plus récent. */
+    public static synchronized java.util.List<Point> read(Context context) {
+        java.util.ArrayList<Point> result = new java.util.ArrayList<>();
+        try {
+            JSONArray points = new JSONArray(prefs(context).getString(KEY_POINTS, "[]"));
+            for (int i = 0; i < points.length(); i++) {
+                JSONObject o = points.optJSONObject(i);
+                if (o == null) continue;
+                int level = o.optInt("level", -1);
+                long ts = o.optLong("timestamp", 0L);
+                if (level < 0 || level > 100 || ts <= 0L) continue;
+                result.add(new Point(ts, level));
+            }
+        } catch (JSONException e) {
+            result.clear();
+        }
+        return result;
+    }
+
+    /** Efface tout l'historique enregistré. */
+    public static synchronized void clear(Context context) {
+        prefs(context).edit().remove(KEY_POINTS).apply();
+    }
 }
