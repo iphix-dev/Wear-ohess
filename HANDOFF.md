@@ -4,7 +4,7 @@ Document rédigé le 4 novembre 2026, mis à jour après la construction de la n
 
 ## 0. Où on en est (résumé en 30 secondes)
 
-- La **nouvelle interface téléphone sombre** est écrite, **compile** (GitHub Actions, les deux flavors) et est poussée sur la branche **`ui-telephone`**. Elle n'est **pas fusionnée dans `main`**.
+- La **nouvelle interface téléphone sombre** est écrite, **compile** (GitHub Actions, les deux flavors) et est poussée sur la branche **`ui-telephone`**. Elle n'est **pas fusionnée dans `main`**. Dernier commit vérifié par le build : `a7766b3` (run GitHub Actions `41819478262`, succès).
 - Elle n'a **jamais été lancée** : ni sur un appareil, ni dans un émulateur, ni vue en capture. Le rendu visuel et le comportement réel sont **non vérifiés**.
 - Le côté montre n'a pas été modifié. Les commandes « sonnerie / vibration » vers la montre et la synchronisation santé n'existent pas encore (boutons « Bientôt », cartes « Aucune donnée »).
 - Prochaine action logique : l'utilisateur installe l'APK de la branche, regarde le rendu, demande des retouches, puis on fusionne dans `main`.
@@ -26,16 +26,16 @@ L'utilisateur écrit en français, est à l'aise sous Linux (Arch) et veut des i
 - Projet Android unique, module `app`, deux flavors : `phone` (applicationId `fr.wristrelay.phone`) et `watch` (`fr.wristrelay.watch`). `minSdk 30`, `compileSdk/targetSdk 35`, Java 17. `buildConfig` activé : `BuildConfig.WATCH` distingue les flavors.
 - `RelayService.java` : service de liaison Bluetooth RFCOMM, UUID `96bf751e-9529-4f99-9c1e-f952fedc4091`. Gère la reprise (`onTaskRemoved`, `ensureStarted`) : les notifications continuent après retrait des applications récentes. **Ce correctif doit être préservé. Non modifié.** Le côté téléphone est client RFCOMM, la montre est serveur. Reconnexion avec attente 5, 10, 20, 40, 80, 160 puis 300 s max.
 - `MainActivity.java` : ancienne interface (liste de boutons), **toujours utilisée par la montre**. Dans l'APK téléphone elle reste présente mais n'est plus un lanceur.
-- `BatteryHistory.java` : enregistre (timestamp, niveau) dans SharedPreferences `battery_history`, 500 points max. **Modifié** : ajout de `Point`, `prefs(Context)` et `read(Context)` (lecture, du plus ancien au plus récent). `record()` est inchangé.
+- `BatteryHistory.java` : enregistre (timestamp, niveau) dans SharedPreferences `battery_history`, 500 points max. **Modifié** : ajout de `Point`, `prefs(Context)`, `read(Context)` (lecture, du plus ancien au plus récent) et `clear(Context)`. `record()` est inchangé.
 - `CallActions.java`, `CallActionReceiver.java` : existent bien (raccrochage/refus à distance via les boutons de la notification d'appel). Fiabilité **non testée**.
 - `app/src/phone/java/fr/wristrelay/Listener.java` : `NotificationListenerService` côté téléphone, filtre sur l'ensemble `allow`.
 - `app/src/watch/.../HealthCheckActivity.java` : présent côté montre (non étudié ici).
 - `app/build.gradle` : dépendances montre uniquement (health-services-client 1.0.0, kotlin-bom 1.8.21, guava 31.0.1-android). Aucune dépendance côté téléphone.
 - Workflow `.github/workflows/release.yml` : `assemblePhoneDebug` + `assembleWatchDebug`, APK renommés `WristRelay-phone.apk` / `WristRelay-watch.apk`, artefact `WristRelay-apks`, joints à la release si l'événement est `release`. Déclenchable à la main (`workflow_dispatch`) sur n'importe quelle branche. **Non modifié.**
-- Préférences : fichier `cfg` (`peer`, `relay_enabled`, `allow`).
+- Préférences : fichier `cfg` (`peer`, `relay_enabled`, `allow`) ; `battery_history` (points) ; `ui` (`chart_range` : période de la courbe, 0 à 3, ajouté par l'interface).
 - `install.sh` : installation adb (Wi-Fi). Non relu ni modifié dans cette session.
 
-### 2.2 Ce qui a été ajouté (branche `ui-telephone`, commit `9cc38a6`)
+### 2.2 Ce qui a été ajouté (branche `ui-telephone`, commits jusqu'à `a7766b3`)
 
 Tous les nouveaux fichiers sont dans `app/src/phone/java/fr/wristrelay/` (donc **absents du build montre**). Aucune ressource XML, aucune bibliothèque : tout est construit en Java et dessiné en Canvas.
 
@@ -43,15 +43,16 @@ Tous les nouveaux fichiers sont dans `app/src/phone/java/fr/wristrelay/` (donc *
 |---|---|
 | `PhoneActivity.java` | Activité lanceur du téléphone. Barre de navigation basse (4 pages), gestion des marges système (bord à bord), instantané d'état (`Snap`), actions partagées (démarrer/arrêter, permissions, choix appareil, choix apps, test). Verrouillée en portrait. |
 | `Page.java` | Base des pages (défilement, en-tête, cartes). |
-| `HomePage.java` | Accueil : carte liaison, carte « À configurer » (seulement s'il manque quelque chose), jauge batterie + bouton d'actualisation, courbe d'historique. |
+| `HomePage.java` | Accueil : carte liaison, carte « À configurer » (seulement s'il manque quelque chose), jauge batterie + bouton d'actualisation, courbe d'historique avec puces de période 6 h / 24 h / 7 j / Tout (choix mémorisé). |
 | `HealthPage.java` | Santé : 4 cartes (pas, rythme cardiaque, sommeil, sport) toutes à « Aucune donnée », bouton de synchronisation grisé. **Aucune valeur inventée.** |
 | `ToolsPage.java` | Outils : sonnerie (deux confirmations, volume alarme, 30 s max, bouton Arrêter) et vibration du **téléphone**. Montre et « les deux » : « Bientôt », boutons inactifs, **rien n'est envoyé à la montre**. |
-| `SettingsPage.java` | Réglages : permissions, accès notifications, réglages Bluetooth, appareil autorisé, applications à transmettre, interrupteur de liaison, notification de test, version. |
+| `SettingsPage.java` | Réglages : permissions, accès notifications, réglages Bluetooth, appareil autorisé, applications à transmettre, interrupteur de liaison, notification de test, export CSV et effacement de l'historique de batterie, version. |
 | `Link.java` | Lecture de l'état de la liaison + actions (démarrer, arrêter, test, demande de batterie). Reprend à l'identique les vérifications de l'ancienne `MainActivity`. |
 | `Ui.java` | Palette, formes, boutons, boîtes de dialogue sombres, temps relatif. |
 | `IconView.java` | Icônes en trait dessinées en Canvas (grille 24). |
 | `GaugeView.java` | Jauge circulaire animée (arc 270°, dégradé, orange ≤ 30 %, rouge ≤ 15 %). |
-| `ChartView.java` | Courbe d'historique : interpolation cubique monotone (ne dépasse jamais 0–100 %), points réels visibles, lecture au toucher. |
+| `ChartView.java` | Courbe d'historique : interpolation cubique monotone (ne dépasse jamais 0–100 %), points réels visibles, lecture au toucher, textes de « vide » réglables. |
+| `HistoryExport.java` | Met l'historique en CSV (`timestamp_ms,date,niveau_pct`) ; partagé via la feuille de partage Android, uniquement sur action de l'utilisateur. |
 
 Autres changements : `app/src/phone/AndroidManifest.xml` (PhoneActivity lanceur, `MainActivity` en `tools:node="replace"` non exportée, permission `VIBRATE`, portrait) et `BatteryHistory.java` (voir plus haut).
 
@@ -74,7 +75,10 @@ Palette : fond `#0A0C11`, surfaces `#13161E` / `#1B1F2B`, texte `#F3F5F9` / `#A0
 5. Pas de SDK Android ni de Maven Central accessibles depuis l'environnement de travail : seule une vérification de **syntaxe** a pu être faite en local (`javac` seul). La vraie compilation s'est faite sur GitHub Actions.
 6. **Incident** : un `git add app/src/phone` a embarqué quatre fichiers orphelins d'une tentative précédente (`NavBar`, `RelayControl`, `BatteryGaugeView`, `BatteryChartView`, datés de 02:18, utilisés par aucun fichier actuel). Détecté avant le build : retirés du commit, branche corrigée (push forcé avec garde sur le commit exact). Les fichiers ont été mis de côté hors du dépôt, dans le dossier temporaire de la session (donc **perdus à la fin de la session**). Ils ne sont plus sur la branche. **Conseil : toujours lister `git status` complet avant un `git add` de dossier.**
 7. Build GitHub Actions lancé sur `ui-telephone` : **succès** (run `41782977390`), APK téléphone et montre produits, artefact `WristRelay-apks`. L'artefact n'a pas pu être téléchargé depuis l'environnement de travail (accès bloqué) : l'utilisateur doit le prendre sur la page du run.
-8. Un hook a signalé à tort « commit non poussé / pas de branche distante » : faux positif, la branche distante est identique au commit local (le clone n'a simplement pas de suivi local `origin/ui-telephone`).
+8. Un hook a signalé à tort « commit non poussé / pas de branche distante » : faux positif, la branche distante est identique au commit local (le clone n'a simplement pas de suivi local `origin/ui-telephone`). La référence locale a ensuite été créée.
+9. L'utilisateur ne pouvait pas tester et a demandé de continuer à améliorer. Lecture retenue : améliorations **uniquement côté téléphone**, sans toucher à `RelayService` ni au côté montre (règle du handoff), par petits lots vérifiés par le build.
+10. **Lot 1** (commit `994be8b`, build OK) : export CSV et effacement (avec confirmation) de l'historique de batterie dans Réglages ; descriptions d'accessibilité (navigation, jauge qui annonce sa valeur, bouton d'actualisation, courbe, icônes décoratives ignorées) ; `Ui.sp()` n'utilise plus `scaledDensity`.
+11. **Lot 2** (commit `a7766b3`, build OK) : sélecteur de période 6 h / 24 h / 7 j / Tout sur la courbe, choix mémorisé, message dédié quand il n'y a aucune mesure sur la période.
 
 ## 4. Ce qui reste à faire (ordre suggéré)
 
@@ -85,6 +89,8 @@ Palette : fond `#0A0C11`, surfaces `#13161E` / `#1B1F2B`, texte `#F3F5F9` / `#A0
 5. Mettre à jour le workflow si souhaité : Node 20 déprécié, `actions/setup-java` v5 disponible, label `ubuntu-latest` qui migre vers Ubuntu 26. Le paquet SDK `tools` a été retiré : ne pas le réinstaller.
 6. Tests sur appareils : connexion, notification de test, écran éteint, retrait des récents, reconnexion, appels, batterie.
 7. Pistes déjà évoquées dans le README : protocole avec accusé de réception, nettoyage des notifications au redémarrage, CompanionDeviceManager, OngoingActivity Wear OS.
+8. Idées côté téléphone sans risque pour la liaison (pas encore faites) : sélecteur d'applications avec recherche et icônes (aujourd'hui une boîte de dialogue à cases) ; choix de la couleur d'accent dans Réglages ; affichage de la dernière connexion.
+9. **Nécessitent l'accord explicite de l'utilisateur** (touchent `RelayService` ou la montre) : rediriger la notification d'état vers la nouvelle interface ; commandes sonnerie/vibration vers la montre ; synchronisation santé.
 
 ## 5. Fonctions NON confirmées (ne pas les présenter comme acquises)
 
@@ -96,6 +102,7 @@ Palette : fond `#0A0C11`, surfaces `#13161E` / `#1B1F2B`, texte `#F3F5F9` / `#A0
 - Réponses aux messages, actions de notification.
 - Reconnexion automatique après coupure Bluetooth ou redémarrage.
 - Autonomie mesurée.
+- Export CSV, effacement de l'historique, sélecteur de période, accessibilité : compilés, jamais exécutés.
 - Sonnerie du téléphone : utilise le volume des **alarmes** ; comportement en mode ne pas déranger non vérifié.
 
 ## 6. Contraintes à préserver
@@ -124,6 +131,5 @@ Palette : fond `#0A0C11`, surfaces `#13161E` / `#1B1F2B`, texte `#F3F5F9` / `#A0
 - Un build réussi ne garantit pas que la liaison Bluetooth fonctionne.
 - La notification « WristRelay actif » ouvre encore l'ancienne `MainActivity` (voir tâche 3).
 - Interface verrouillée en portrait ; sur très grand écran Android peut ignorer ce verrou.
-- `Ui.sp()` utilise `scaledDensity` (déprécié mais fonctionnel) : simple avertissement de compilation.
 - Le choix des applications à transmettre est une boîte de dialogue à cases (liste triée), pas une page dédiée.
 - Les anciens journaux ne décrivent pas forcément la version actuelle.
