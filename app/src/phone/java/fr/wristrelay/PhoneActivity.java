@@ -311,6 +311,21 @@ public class PhoneActivity extends Activity {
         Toast.makeText(this, "Batterie demandée à la montre", Toast.LENGTH_SHORT).show();
     }
 
+    /** Demande une lecture santé à la montre ; renvoie false si la montre n'est pas connectée. */
+    boolean syncHealth() {
+        if (Link.state(this) != Link.CONNECTED) {
+            Toast.makeText(this, "La montre n'est pas connectée", Toast.LENGTH_SHORT).show();
+            return false;
+        }
+        try {
+            Link.requestHealth();
+            return true;
+        } catch (org.json.JSONException e) {
+            android.util.Log.e("WristRelay", "Demande santé impossible", e);
+            return false;
+        }
+    }
+
     void sendTest() {
         guard(() -> {
             if (Link.state(this) != Link.CONNECTED) {

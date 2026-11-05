@@ -78,6 +78,8 @@ JSONObject packet = new JSONObject(new String(b,"UTF-8"));
 if(BuildConfig.WATCH) receive(packet);
 else if ("battery".equals(packet.optString("op"))) {
 BatteryHistory.record(this, packet.optInt("level", -1));
+} else if ("health".equals(packet.optString("op"))) {
+HealthStore.record(this, packet);
 } else CallActions.execute(this, packet);}
  }catch(Exception e){if(running){nm.notify(1,status("Déconnectée — reconnexion automatique"));android.util.Log.w("WristRelay","Liaison interrompue",e);}}finally{closeSocket();queue.clear();}if(running)try{Thread.sleep(delay);delay=Math.min(delay*2,300000);}catch(InterruptedException e){return;}}
  }
@@ -89,6 +91,10 @@ if ("battery_request".equals(j.optString("op"))) {
     response.put("op", "battery");
     response.put("level", level);
     send(response);
+    return;
+}
+if ("health_request".equals(j.optString("op"))) {
+    HealthSync.start(this);
     return;
 }
 if("find".equals(j.optString("op"))){String mode=j.optString("mode");try{if("ring".equals(mode))FindActions.ring(this);else if("vibrate".equals(mode))FindActions.vibrate(this);else if("stop".equals(mode))FindActions.stopRing();}catch(RuntimeException e){android.util.Log.w("WristRelay","Commande find impossible",e);}return;}

@@ -137,6 +137,13 @@ final class Link {
         RelayService.send(j);
     }
 
+    /** Demande une lecture santé à la montre (sans effet si la liaison n'est pas connectée). */
+    static void requestHealth() throws JSONException {
+        JSONObject j = new JSONObject();
+        j.put("op", "health_request");
+        RelayService.send(j);
+    }
+
     static void sendTest() throws JSONException {
         JSONObject j = new JSONObject();
         j.put("op", "post");
