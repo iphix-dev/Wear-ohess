@@ -7,4 +7,8 @@ final class HealthSync {
     private HealthSync() { }
 
     static void start(Context c) { }
+
+    static void ensureLogging(Context c) { }
+
+    static void ack(Context c, long upTo) { }
 }

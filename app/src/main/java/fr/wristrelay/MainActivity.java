@@ -24,6 +24,7 @@ public class MainActivity extends Activity {
         .setPositiveButton("Fermer", null)
         .show();
 }}); }
+ @Override public void onRequestPermissionsResult(int code,String[] perms,int[] results){super.onRequestPermissionsResult(code,perms,results);if(code==2)HealthSync.ensureLogging(this);}
  public void onCreate(Bundle b){super.onCreate(b); RelayService.cleanupLegacyChannel(this); ScrollView s=new ScrollView(this); box=new LinearLayout(this);box.setOrientation(1);box.setPadding(24,36,24,36);s.addView(box);setContentView(s);
  TextView title=new TextView(this);title.setText("WristRelay reprise V2 — "+(BuildConfig.WATCH?"MONTRE":"TÉLÉPHONE")+"\nPrototype : garder les deux appareils configurés. Autoriser uniquement votre appareil Bluetooth.");box.addView(title);
  button("1. Autoriser Bluetooth / notifications",()->{ java.util.ArrayList<String> p=new java.util.ArrayList<>();if(Build.VERSION.SDK_INT>=31){p.add(Manifest.permission.BLUETOOTH_CONNECT);p.add(Manifest.permission.BLUETOOTH_ADVERTISE);}if(Build.VERSION.SDK_INT>=33)p.add(Manifest.permission.POST_NOTIFICATIONS);if(!p.isEmpty())requestPermissions(p.toArray(new String[0]),1); });

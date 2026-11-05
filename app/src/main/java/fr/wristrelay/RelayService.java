@@ -14,6 +14,7 @@ public class RelayService extends Service {
  if(getSharedPreferences("cfg",0).getBoolean("relay_enabled",false)) {
      ensureStarted("onCreate");
  }
+ HealthSync.ensureLogging(this);
 }
  Notification status(String text){Intent open=getPackageManager().getLaunchIntentForPackage(getPackageName());if(open==null)open=new Intent(this,MainActivity.class);PendingIntent p=PendingIntent.getActivity(this,0,open,PendingIntent.FLAG_IMMUTABLE|PendingIntent.FLAG_UPDATE_CURRENT);return new Notification.Builder(this,"status_quiet").setSmallIcon(android.R.drawable.stat_sys_data_bluetooth).setContentTitle("WristRelay actif").setContentText(text).setContentIntent(p).setOngoing(true).setShowWhen(false).setCategory(Notification.CATEGORY_SERVICE).build();}
  public int onStartCommand(Intent intent,int flags,int startId){
@@ -79,7 +80,13 @@ if(BuildConfig.WATCH) receive(packet);
 else if ("battery".equals(packet.optString("op"))) {
 BatteryHistory.record(this, packet.optInt("level", -1));
 } else if ("health".equals(packet.optString("op"))) {
-HealthStore.record(this, packet);
+long upTo = HealthStore.record(this, packet);
+if (upTo > 0) {
+JSONObject ack = new JSONObject();
+ack.put("op", "health_ack");
+ack.put("upTo", upTo);
+send(ack);
+}
 } else CallActions.execute(this, packet);}
  }catch(Exception e){if(running){nm.notify(1,status("Déconnectée — reconnexion automatique"));android.util.Log.w("WristRelay","Liaison interrompue",e);}}finally{closeSocket();queue.clear();}if(running)try{Thread.sleep(delay);delay=Math.min(delay*2,300000);}catch(InterruptedException e){return;}}
  }
@@ -95,6 +102,10 @@ if ("battery_request".equals(j.optString("op"))) {
 }
 if ("health_request".equals(j.optString("op"))) {
     HealthSync.start(this);
+    return;
+}
+if ("health_ack".equals(j.optString("op"))) {
+    HealthSync.ack(this, j.optLong("upTo", 0L));
     return;
 }
 if("find".equals(j.optString("op"))){String mode=j.optString("mode");try{if("ring".equals(mode))FindActions.ring(this);else if("vibrate".equals(mode))FindActions.vibrate(this);else if("stop".equals(mode))FindActions.stopRing();}catch(RuntimeException e){android.util.Log.w("WristRelay","Commande find impossible",e);}return;}
