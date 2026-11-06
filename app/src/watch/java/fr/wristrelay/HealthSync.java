@@ -77,13 +77,15 @@ final class HealthSync {
             PassiveMonitoringCapabilities caps = passive.getCapabilitiesAsync().get(8, TimeUnit.SECONDS);
             Set<? extends DataType<?, ?>> supported = caps.getSupportedDataTypesPassiveMonitoring();
 
+            // Mode éco : on garde les pas et l'état d'activité, on coupe le cœur continu et le reste.
+            boolean eco = c.getSharedPreferences("watchcfg", Context.MODE_PRIVATE).getBoolean("eco", false);
             Set<DataType<?, ?>> types = new HashSet<>();
-            if (bodyOk && supported.contains(DataType.HEART_RATE_BPM)) types.add(DataType.HEART_RATE_BPM);
+            if (!eco && bodyOk && supported.contains(DataType.HEART_RATE_BPM)) types.add(DataType.HEART_RATE_BPM);
             if (actOk) {
                 if (supported.contains(DataType.STEPS_DAILY)) types.add(DataType.STEPS_DAILY);
-                if (supported.contains(DataType.CALORIES_DAILY)) types.add(DataType.CALORIES_DAILY);
-                if (supported.contains(DataType.DISTANCE_DAILY)) types.add(DataType.DISTANCE_DAILY);
-                if (supported.contains(DataType.FLOORS_DAILY)) types.add(DataType.FLOORS_DAILY);
+                if (!eco && supported.contains(DataType.CALORIES_DAILY)) types.add(DataType.CALORIES_DAILY);
+                if (!eco && supported.contains(DataType.DISTANCE_DAILY)) types.add(DataType.DISTANCE_DAILY);
+                if (!eco && supported.contains(DataType.FLOORS_DAILY)) types.add(DataType.FLOORS_DAILY);
             }
             if (types.isEmpty() && !actOk) return;
 
@@ -106,14 +108,15 @@ final class HealthSync {
 
     // ---------- Synchronisation à la demande ----------
 
-    static void start(Context context) {
+    /** live = false : synchro automatique, on n'allume pas le capteur cardiaque (économie de batterie). */
+    static void start(Context context, final boolean live) {
         if (!BUSY.compareAndSet(false, true)) return;
         final Context app = context.getApplicationContext();
         new Thread(() -> {
             JSONObject out = new JSONObject();
             StringBuilder note = new StringBuilder();
             try {
-                run(app, out, note);
+                run(app, out, note, live);
             } catch (Throwable e) {
                 android.util.Log.w("WristHealth", "Lecture santé interrompue", e);
                 add(note, "erreur : " + e);
@@ -130,7 +133,7 @@ final class HealthSync {
         }, "health-sync").start();
     }
 
-    private static void run(Context c, JSONObject out, StringBuilder note) throws Exception {
+    private static void run(Context c, JSONObject out, StringBuilder note, boolean live) throws Exception {
         boolean actOk = granted(c, Manifest.permission.ACTIVITY_RECOGNITION);
         boolean bodyOk = granted(c, Manifest.permission.BODY_SENSORS);
         if (!actOk) add(note, "pas/sommeil : autorisation « activité » manquante");
@@ -148,7 +151,7 @@ final class HealthSync {
             }
         }
 
-        if (bodyOk) {
+        if (bodyOk && live) {
             double bpm = liveHeartRate(c);
             if (bpm > 0) {
                 HealthLog.hr(c, System.currentTimeMillis(), (int) Math.round(bpm));

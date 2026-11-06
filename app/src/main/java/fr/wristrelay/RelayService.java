@@ -15,6 +15,7 @@ public class RelayService extends Service {
      ensureStarted("onCreate");
  }
  HealthSync.ensureLogging(this);
+ WatchStatus.init(this);
 }
  Notification status(String text){Intent open=getPackageManager().getLaunchIntentForPackage(getPackageName());if(open==null)open=new Intent(this,MainActivity.class);PendingIntent p=PendingIntent.getActivity(this,0,open,PendingIntent.FLAG_IMMUTABLE|PendingIntent.FLAG_UPDATE_CURRENT);return new Notification.Builder(this,"status_quiet").setSmallIcon(android.R.drawable.stat_sys_data_bluetooth).setContentTitle("WristRelay actif").setContentText(text).setContentIntent(p).setOngoing(true).setShowWhen(false).setCategory(Notification.CATEGORY_SERVICE).build();}
  public int onStartCommand(Intent intent,int flags,int startId){
@@ -74,11 +75,17 @@ android.util.Log.i("WristRelay","Tentative Bluetooth vers " + peer);
 s.connect();
 android.util.Log.i("WristRelay","Connexion Bluetooth établie vers " + peer);
 }
- socket=s;queue.clear();delay=5000;nm.notify(1,status("Connectée à l'appareil"));DataInputStream in=new DataInputStream(s.getInputStream());while(running){int size=in.readInt();if(size<1||size>16384)throw new IOException("Trame invalide");byte[] b=new byte[size];in.readFully(b);// WR_CALL_ACTIONS_V1
+ socket=s;queue.clear();delay=5000;nm.notify(1,status("Connectée à l'appareil"));onLinkUp();DataInputStream in=new DataInputStream(s.getInputStream());while(running){int size=in.readInt();if(size<1||size>16384)throw new IOException("Trame invalide");byte[] b=new byte[size];in.readFully(b);// WR_CALL_ACTIONS_V1
 JSONObject packet = new JSONObject(new String(b,"UTF-8"));
 if(BuildConfig.WATCH) receive(packet);
 else if ("battery".equals(packet.optString("op"))) {
 BatteryHistory.record(this, packet.optInt("level", -1));
+AlertEngine.onBattery(this, packet.optInt("level", -1));
+} else if ("status".equals(packet.optString("op"))) {
+StatusStore.record(this, packet);
+AlertEngine.onStatus(this, packet);
+} else if ("alert".equals(packet.optString("op"))) {
+AlertEngine.onWatchAlert(this, packet);
 } else if ("health".equals(packet.optString("op"))) {
 long upTo = HealthStore.record(this, packet);
 if (upTo > 0) {
@@ -88,9 +95,18 @@ ack.put("upTo", upTo);
 send(ack);
 }
 } else CallActions.execute(this, packet);}
- }catch(Exception e){if(running){nm.notify(1,status("Déconnectée — reconnexion automatique"));android.util.Log.w("WristRelay","Liaison interrompue",e);}}finally{closeSocket();queue.clear();}if(running)try{Thread.sleep(delay);delay=Math.min(delay*2,300000);}catch(InterruptedException e){return;}}
+ }catch(Exception e){if(running){nm.notify(1,status("Déconnectée — reconnexion automatique"));android.util.Log.w("WristRelay","Liaison interrompue",e);}}finally{closeSocket();queue.clear();onLinkDown();}if(running)try{Thread.sleep(delay);delay=Math.min(delay*2,300000);}catch(InterruptedException e){return;}}
+ }
+ void onLinkUp(){
+ try{ if(BuildConfig.WATCH) WatchStatus.onLinkUp(this); else { SyncScheduler.onLinkUp(this); AlertEngine.onLinkUp(this); } }
+ catch(RuntimeException e){ android.util.Log.w("WristRelay","Suite de connexion impossible",e); }
+ }
+ void onLinkDown(){
+ try{ if(!BuildConfig.WATCH){ SyncScheduler.onLinkDown(this); AlertEngine.onLinkDown(this); } }
+ catch(RuntimeException e){ android.util.Log.w("WristRelay","Suite de déconnexion impossible",e); }
  }
  void receive(JSONObject j)throws Exception{
+if (WatchStatus.handle(this, j)) return;
 if ("battery_request".equals(j.optString("op"))) {
     BatteryManager battery = (BatteryManager)getSystemService(BATTERY_SERVICE);
     int level = battery.getIntProperty(BatteryManager.BATTERY_PROPERTY_CAPACITY);
@@ -101,7 +117,7 @@ if ("battery_request".equals(j.optString("op"))) {
     return;
 }
 if ("health_request".equals(j.optString("op"))) {
-    HealthSync.start(this);
+    HealthSync.start(this, j.optBoolean("live", true));
     return;
 }
 if ("health_ack".equals(j.optString("op"))) {
@@ -111,7 +127,7 @@ if ("health_ack".equals(j.optString("op"))) {
 if("find".equals(j.optString("op"))){String mode=j.optString("mode");try{if("ring".equals(mode))FindActions.ring(this);else if("vibrate".equals(mode))FindActions.vibrate(this);else if("stop".equals(mode))FindActions.stopRing();}catch(RuntimeException e){android.util.Log.w("WristRelay","Commande find impossible",e);}return;}
 String key=j.optString("key");if("remove".equals(j.optString("op"))){Integer id=ids.remove(key);if(id!=null)nm.cancel(id);return;}if(!"post".equals(j.optString("op")))return;if(!ids.containsKey(key)){if(ids.size()>=100){String oldest=ids.keySet().iterator().next();nm.cancel(ids.remove(oldest));}ids.put(key,nextId++);}boolean call=j.optBoolean("call");String app=j.optString("app"),title=j.optString("title"),text=j.optString("text");String line=title.isEmpty()?text:(text.isEmpty()?title:title+" : "+text),body=title.isEmpty()?text:(text.isEmpty()?title:title+"\n"+text);Notification.Builder b=new Notification.Builder(this,call?"calls":"messages").setSmallIcon(android.R.drawable.ic_dialog_info).setContentTitle(app.isEmpty()?"Notification":app).setContentText(line).setStyle(new Notification.BigTextStyle().bigText(body)).setOnlyAlertOnce(true).setAutoCancel(true).setLocalOnly(true).setVisibility(Notification.VISIBILITY_PRIVATE).setCategory(call?Notification.CATEGORY_CALL:Notification.CATEGORY_MESSAGE);if(call)CallActions.addButtons(this,b,j);nm.notify(ids.get(key),b.build());}
  synchronized void closeSocket(){BluetoothSocket s=socket;socket=null;if(s!=null)try{s.close();}catch(Exception ignored){}}
- public void onDestroy(){android.util.Log.w("WristRelay","onDestroy : service détruit");running=false;instance=null;closeSocket();if(server!=null)try{server.close();}catch(Exception ignored){}if(link!=null)link.interrupt();threads.shutdownNow();queue.clear();stopForeground(STOP_FOREGROUND_REMOVE);super.onDestroy();}
+ public void onDestroy(){android.util.Log.w("WristRelay","onDestroy : service détruit");running=false;instance=null;if(!BuildConfig.WATCH){SyncScheduler.onLinkDown(this);AlertEngine.cancelLost(this);}closeSocket();if(server!=null)try{server.close();}catch(Exception ignored){}if(link!=null)link.interrupt();threads.shutdownNow();queue.clear();stopForeground(STOP_FOREGROUND_REMOVE);super.onDestroy();}
 
  // WR_RECOVERY_V2
  @Override public void onTaskRemoved(Intent rootIntent) {

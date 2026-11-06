@@ -67,8 +67,11 @@ public class PhoneActivity extends Activity {
     private long startingSince;
     private boolean resumed;
     private int current = -1;
-    private final Page[] pages = new Page[4];
-    private final NavItem[] navItems = new NavItem[4];
+    private static final int PAGES = 5;
+    /** Ordre d'affichage des onglets (indices de pages) : la page Montre (4) vient après Santé. */
+    private static final int[] NAV_ORDER = {0, 1, 4, 2, 3};
+    private final Page[] pages = new Page[PAGES];
+    private final NavItem[] navItems = new NavItem[PAGES];
     private FrameLayout content;
     private final Handler handler = new Handler(Looper.getMainLooper());
 
@@ -187,9 +190,9 @@ public class PhoneActivity extends Activity {
         nav.addView(Ui.hairline(this), Ui.lp(Page.MATCH, 1));
         LinearLayout row = new LinearLayout(this);
         row.setOrientation(LinearLayout.HORIZONTAL);
-        IconView.Kind[] kinds = {IconView.Kind.HOME, IconView.Kind.HEART, IconView.Kind.GRID, IconView.Kind.SLIDERS};
-        String[] names = {"Accueil", "Santé", "Outils", "Réglages"};
-        for (int i = 0; i < 4; i++) {
+        IconView.Kind[] kinds = {IconView.Kind.HOME, IconView.Kind.HEART, IconView.Kind.GRID, IconView.Kind.SLIDERS, IconView.Kind.WATCH};
+        String[] names = {"Accueil", "Santé", "Outils", "Réglages", "Montre"};
+        for (int i : NAV_ORDER) {
             navItems[i] = new NavItem(kinds[i], names[i], i);
             row.addView(navItems[i], Ui.lp(0, Page.WRAP, 1f));
         }
@@ -203,6 +206,7 @@ public class PhoneActivity extends Activity {
                 case 1: pages[i] = new HealthPage(this); break;
                 case 2: pages[i] = new ToolsPage(this); break;
                 case 3: pages[i] = new SettingsPage(this); break;
+                case 4: pages[i] = new WatchPage(this); break;
                 default: pages[i] = new HomePage(this); break;
             }
         }
@@ -225,7 +229,7 @@ public class PhoneActivity extends Activity {
             v.setAlpha(1f);
             v.setTranslationY(0f);
         }
-        for (int k = 0; k < 4; k++) navItems[k].setActive(k == i, animate);
+        for (int k = 0; k < PAGES; k++) navItems[k].setActive(k == i, animate);
         p.refresh();
         if (resumed) p.onShow();
     }
@@ -324,6 +328,32 @@ public class PhoneActivity extends Activity {
             android.util.Log.e("WristRelay", "Demande santé impossible", e);
             return false;
         }
+    }
+
+    /** Demande l'état détaillé à la montre ; renvoie false si elle n'est pas connectée. */
+    boolean requestWatchStatus(boolean toast) {
+        if (Link.state(this) != Link.CONNECTED) {
+            if (toast) Toast.makeText(this, "La montre n'est pas connectée", Toast.LENGTH_SHORT).show();
+            return false;
+        }
+        try {
+            Link.requestStatus();
+            return true;
+        } catch (org.json.JSONException e) {
+            android.util.Log.e("WristRelay", "Demande d'état impossible", e);
+            return false;
+        }
+    }
+
+    /** Envoie une commande à la montre ; la réponse arrive dans le prochain état reçu. */
+    void watchCmd(org.json.JSONObject cmd) {
+        guard(() -> {
+            if (Link.state(this) != Link.CONNECTED) {
+                throw new IllegalStateException("La montre n'est pas connectée : démarre la liaison d'abord.");
+            }
+            Link.sendCmd(cmd);
+            Toast.makeText(this, "Commande envoyée à la montre", Toast.LENGTH_SHORT).show();
+        });
     }
 
     void sendTest() {

@@ -6,7 +6,7 @@ import android.content.Context;
 final class HealthSync {
     private HealthSync() { }
 
-    static void start(Context c) { }
+    static void start(Context c, boolean live) { }
 
     static void ensureLogging(Context c) { }
 

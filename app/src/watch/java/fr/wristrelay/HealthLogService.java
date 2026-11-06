@@ -34,7 +34,11 @@ public class HealthLogService extends PassiveListenerService {
             if (hr != null) {
                 for (SampleDataPoint<Double> p : hr) {
                     Double v = p.getValue();
-                    if (v != null) HealthLog.hr(this, bootMs + p.getTimeDurationFromBoot().toMillis(), (int) Math.round(v));
+                    if (v != null) {
+                        long ts = bootMs + p.getTimeDurationFromBoot().toMillis();
+                        HealthLog.hr(this, ts, (int) Math.round(v));
+                        WatchAlerts.onHeartRate(this, ts, (int) Math.round(v));
+                    }
                 }
             }
         } catch (RuntimeException e) {
@@ -56,6 +60,7 @@ public class HealthLogService extends PassiveListenerService {
         try {
             long t = info.getStateChangeTime().toEpochMilli();
             HealthLog.activity(this, t, String.valueOf(info.getUserActivityState()));
+            WatchAlerts.onActivityState(this, String.valueOf(info.getUserActivityState()));
         } catch (RuntimeException e) {
             android.util.Log.w("WristHealth", "État d'activité illisible", e);
         }

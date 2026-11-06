@@ -144,6 +144,19 @@ final class Link {
         RelayService.send(j);
     }
 
+    /** Demande l'état détaillé de la montre (batterie, température, écran, contrôles). */
+    static void requestStatus() throws JSONException {
+        JSONObject j = new JSONObject();
+        j.put("op", "status_request");
+        RelayService.send(j);
+    }
+
+    /** Commande à distance (« dnd », « eco », « saver », « brightness », « ringer », « volume »). */
+    static void sendCmd(JSONObject cmd) throws JSONException {
+        cmd.put("op", "cmd");
+        RelayService.send(cmd);
+    }
+
     static void sendTest() throws JSONException {
         JSONObject j = new JSONObject();
         j.put("op", "post");

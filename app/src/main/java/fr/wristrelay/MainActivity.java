@@ -31,6 +31,8 @@ public class MainActivity extends Activity {
  
 button("2. Ouvrir les réglages Bluetooth",()->startActivity(new Intent(Settings.ACTION_BLUETOOTH_SETTINGS)));
  if(BuildConfig.WATCH)button("Autoriser les capteurs santé (pas, cœur)",()->{ if(Build.VERSION.SDK_INT>=23)requestPermissions(new String[]{Manifest.permission.ACTIVITY_RECOGNITION,Manifest.permission.BODY_SENSORS},2); });
+ if(BuildConfig.WATCH)button("Autoriser : Ne pas déranger (commande à distance)",()->{ try{startActivity(new android.content.Intent(android.provider.Settings.ACTION_NOTIFICATION_POLICY_ACCESS_SETTINGS));}catch(Exception e){android.widget.Toast.makeText(this,"Écran indisponible sur cette montre",android.widget.Toast.LENGTH_LONG).show();} });
+ if(BuildConfig.WATCH)button("Autoriser : luminosité (commande à distance)",()->{ try{startActivity(new android.content.Intent(android.provider.Settings.ACTION_MANAGE_WRITE_SETTINGS,android.net.Uri.parse("package:"+getPackageName())));}catch(Exception e){android.widget.Toast.makeText(this,"Écran indisponible sur cette montre",android.widget.Toast.LENGTH_LONG).show();} });
  if(BuildConfig.WATCH)button("Rendre la montre visible 120 secondes",()->startActivity(new Intent(BluetoothAdapter.ACTION_REQUEST_DISCOVERABLE).putExtra(BluetoothAdapter.EXTRA_DISCOVERABLE_DURATION,120)));
  button("3. Choisir l'appareil déjà associé",()->choose());
  if(!BuildConfig.WATCH){button("4. Autoriser la lecture des notifications",()->startActivity(new Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)));button("Applications à transmettre",()->filters());}
